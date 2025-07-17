@@ -81,9 +81,10 @@ class PassSerializer(serializers.ModelSerializer):
         images_data = validated_data.pop('images')
         
         # Создаем или получаем пользователя
+        user_email = user_data.pop('email')
         user, created = User.objects.get_or_create(
-            email=user_data['email'],
-            defaults=user_data
+            email=user_email,
+            defaults={**user_data, 'email': user_email}
         )
         
         # Создаем координаты
