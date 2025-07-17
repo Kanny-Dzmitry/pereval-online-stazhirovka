@@ -52,7 +52,8 @@ class ImageSerializer(serializers.ModelSerializer):
         
         image = Image.objects.create(
             data=data,
-            title=title
+            title=title,
+            pass_instance=validated_data.get('pass_instance')
         )
         return image
 
