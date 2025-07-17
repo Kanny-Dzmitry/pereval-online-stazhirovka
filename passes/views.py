@@ -161,7 +161,6 @@ def submit_data(request):
     return submit_data_post(request)
 
 
-@api_view(['GET'])
 def get_pass_by_id(request, pk):
     """
     REST API метод GET submitData/<id>.
@@ -195,7 +194,6 @@ def get_pass_by_id(request, pk):
         )
 
 
-@api_view(['PATCH'])
 def update_pass(request, pk):
     """
     REST API метод PATCH submitData/<id>.
@@ -339,7 +337,6 @@ def update_pass(request, pk):
         return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
 def get_passes_by_user_email(request):
     """
     REST API метод GET submitData/?user__email=<email>.
