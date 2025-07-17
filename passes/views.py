@@ -61,38 +61,37 @@ class PassDataHandler:
 @api_view(['POST', 'GET'])
 def submit_data(request):
     """
-    REST API метод POST/GET submitData.
+    REST API методы для submitData.
     
-    POST: Получает и сохраняет информацию о перевале от мобильного приложения туриста.
-    GET: Возвращает список перевалов пользователя по email (если указан параметр user__email)
-    
-    Endpoints: 
-    - POST /submitData/
-    - GET /submitData/?user__email=<email>
+    POST /submitData - Получает и сохраняет информацию о перевале
+    GET /submitData?user__email=<email> - Получает все перевалы пользователя
     
     Returns:
-        JSON response with status, message and id fields (POST)
-        JSON response со списком перевалов пользователя (GET)
+        JSON response 
     """
+    # Обработка GET запроса для получения перевалов пользователя
     if request.method == 'GET':
-        # Обработка GET запроса - получение перевалов пользователя по email
         try:
             # Получаем email из параметров запроса
             user_email = request.GET.get('user__email')
             
             if not user_email:
-                return Response(
-                    {'error': 'Необходимо указать параметр user__email'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({
+                    'error': 'Параметр user__email обязателен'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Получаем все перевалы пользователя с данным email
+            # Получаем все перевалы пользователя с указанным email
             passes = Pass.objects.filter(user__email=user_email).order_by('-add_time')
+            
+            if not passes.exists():
+                logger.info(f"Пользователь с email {user_email} не найден или у него нет перевалов")
+                return Response([], status=status.HTTP_200_OK)
             
             # Сериализуем данные
             serializer = PassSerializer(passes, many=True)
             
-            logger.info(f"Запрошены перевалы пользователя: {user_email}, найдено: {len(passes)}")
+            logger.info(f"Запрошены все перевалы пользователя с email: {user_email}, найдено: {passes.count()}")
+            
             return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -103,7 +102,7 @@ def submit_data(request):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    # Обработка POST запроса - создание нового перевала
+    # Обработка POST запроса для создания нового перевала
     try:
         # Получаем данные из запроса
         data = request.data
@@ -164,30 +163,27 @@ def submit_data(request):
 
 
 @api_view(['GET', 'PATCH'])
-def pass_detail(request, pass_id):
+def pass_detail(request, pk):
     """
-    REST API методы для работы с конкретным перевалом.
+    REST API методы для работы с отдельным перевалом.
     
-    GET /submitData/<id> - получение перевала по ID
-    PATCH /submitData/<id> - редактирование перевала
+    GET /submitData/<id> - Получает одну запись по её id
+    PATCH /submitData/<id> - Редактирует запись, если статус 'new'
     
-    Args:
-        pass_id (int): ID перевала
-        
     Returns:
-        JSON response с данными перевала (GET)
-        JSON response с результатом операции (PATCH)
+        JSON response
     """
+    # Получаем перевал по ID или возвращаем 404
+    pass_instance = get_object_or_404(Pass, pk=pk)
+    
+    # Обработка GET запроса
     if request.method == 'GET':
-        # Обработка GET запроса - получение перевала по ID
         try:
-            # Получаем перевал по ID или возвращаем 404
-            pass_instance = get_object_or_404(Pass, id=pass_id)
-            
             # Сериализуем данные
             serializer = PassSerializer(pass_instance)
             
-            logger.info(f"Запрошен перевал ID: {pass_id}")
+            logger.info(f"Запрошена информация о перевале ID: {pk}")
+            
             return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -198,95 +194,104 @@ def pass_detail(request, pass_id):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    # Обработка PATCH запроса - редактирование перевала
-    try:
-        # Получаем перевал по ID или возвращаем 404
-        pass_instance = get_object_or_404(Pass, id=pass_id)
-        
-        # Проверяем статус перевала
-        if pass_instance.status != 'new':
-            response_data = {
-                'state': 0,
-                'message': f'Нельзя редактировать данные перевала со статусом "{pass_instance.get_status_display()}". Редактирование доступно только для статуса "new".'
-            }
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Получаем данные из запроса
-        data = request.data
-        
-        # Проверяем, что пользователь не пытается изменить запрещенные поля
-        user_data = data.get('user', {})
-        if any(field in user_data for field in ['fam', 'name', 'otc', 'email', 'phone']):
-            response_data = {
-                'state': 0,
-                'message': 'Нельзя редактировать ФИО, адрес почты и номер телефона пользователя.'
-            }
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Удаляем user из данных, если он есть (т.к. его нельзя изменять)
-        if 'user' in data:
-            del data['user']
-        
+    # Обработка PATCH запроса
+    elif request.method == 'PATCH':
         try:
-            with transaction.atomic():
-                # Обновляем основные поля перевала
-                for field in ['beauty_title', 'title', 'other_titles', 'connect']:
-                    if field in data:
-                        setattr(pass_instance, field, data[field])
+            # Проверяем статус - можно редактировать только записи со статусом 'new'
+            if pass_instance.status != 'new':
+                return Response({
+                    'state': 0,
+                    'message': f'Редактирование невозможно. Статус записи: {pass_instance.status}. Можно редактировать только записи со статусом "new".'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            data = request.data.copy()
+            
+            # Проверяем и блокируем изменение пользовательских данных (ФИО, email, телефон)
+            if 'user' in data:
+                current_user_data = {
+                    'email': pass_instance.user.email,
+                    'fam': pass_instance.user.fam,
+                    'name': pass_instance.user.name,
+                    'otc': pass_instance.user.otc,
+                    'phone': pass_instance.user.phone
+                }
                 
-                # Обновляем координаты
+                # Проверяем, пытается ли пользователь изменить запрещенные поля
+                user_data = data['user']
+                forbidden_changes = []
+                
+                if user_data.get('email') != current_user_data['email']:
+                    forbidden_changes.append('email')
+                if user_data.get('fam') != current_user_data['fam']:
+                    forbidden_changes.append('fam')
+                if user_data.get('name') != current_user_data['name']:
+                    forbidden_changes.append('name')
+                if user_data.get('otc') != current_user_data['otc']:
+                    forbidden_changes.append('otc')
+                if user_data.get('phone') != current_user_data['phone']:
+                    forbidden_changes.append('phone')
+                
+                if forbidden_changes:
+                    return Response({
+                        'state': 0,
+                        'message': f'Нельзя изменять поля пользователя: {", ".join(forbidden_changes)}. Можно редактировать только данные о перевале.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Убираем данные пользователя из обновления, так как они не должны изменяться
+                data.pop('user')
+            
+            with transaction.atomic():
+                # Обновляем координаты если они переданы
                 if 'coords' in data:
-                    coords_data = data['coords']
-                    for field in ['latitude', 'longitude', 'height']:
-                        if field in coords_data:
-                            setattr(pass_instance.coords, field, coords_data[field])
+                    coords_data = data.pop('coords')
+                    for field, value in coords_data.items():
+                        setattr(pass_instance.coords, field, value)
                     pass_instance.coords.save()
                 
-                # Обновляем уровень сложности
+                # Обновляем уровень сложности если он передан
                 if 'level' in data:
-                    level_data = data['level']
-                    for field in ['winter', 'summer', 'autumn', 'spring']:
-                        if field in level_data:
-                            setattr(pass_instance.level, field, level_data[field])
+                    level_data = data.pop('level')
+                    for field, value in level_data.items():
+                        setattr(pass_instance.level, field, value)
                     pass_instance.level.save()
                 
-                # Обновляем изображения (если переданы)
+                # Обрабатываем изображения если они переданы
                 if 'images' in data:
+                    images_data = data.pop('images')
                     # Удаляем старые изображения
                     pass_instance.images.all().delete()
-                    
                     # Создаем новые изображения
-                    from .serializers import ImageSerializer
-                    for image_data in data['images']:
-                        image_serializer = ImageSerializer(data=image_data)
-                        if image_serializer.is_valid():
-                            image_serializer.save(pass_instance=pass_instance)
+                    for image_data in images_data:
+                        Image.objects.create(
+                            title=image_data.get('title', ''),
+                            data=image_data.get('data', ''),
+                            pass_instance=pass_instance
+                        )
                 
-                # Сохраняем изменения в основной модели
+                # Обновляем основные поля перевала
+                for field, value in data.items():
+                    if hasattr(pass_instance, field):
+                        setattr(pass_instance, field, value)
+                
                 pass_instance.save()
                 
-                logger.info(f"Обновлен перевал ID: {pass_id}")
+                logger.info(f"Перевал ID {pk} успешно обновлен")
                 
-                response_data = {
+                return Response({
                     'state': 1,
-                    'message': 'Данные перевала успешно обновлены.'
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
+                    'message': None
+                }, status=status.HTTP_200_OK)
                 
         except Exception as e:
             error_message = f"Ошибка при обновлении перевала: {str(e)}"
             logger.error(error_message)
-            response_data = {
+            return Response({
                 'state': 0,
                 'message': error_message
-            }
-            return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-    except Exception as e:
-        error_message = f"Ошибка сервера: {str(e)}"
-        logger.error(error_message)
-        response_data = {
-            'state': 0,
-            'message': error_message
-        }
-        return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+
