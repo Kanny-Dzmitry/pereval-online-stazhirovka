@@ -41,19 +41,32 @@ class ImageSerializer(serializers.ModelSerializer):
         data = validated_data.pop('data')
         title = validated_data.get('title', '')
         
-        # Декодируем base64, если это необходимо
-        if data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name=f'{title}.{ext}')
-        else:
-            # Если это уже файл или простая строка
-            data = ContentFile(base64.b64decode(data), name=f'{title}.jpg')
+        try:
+            # Декодируем base64, если это необходимо
+            if data.startswith('data:image'):
+                format, imgstr = data.split(';base64,')
+                ext = format.split('/')[-1]
+                decoded_data = base64.b64decode(imgstr)
+                data = ContentFile(decoded_data, name=f'{title}.{ext}')
+            elif data:
+                # Если это простая base64 строка
+                # Добавляем padding если необходимо
+                missing_padding = len(data) % 4
+                if missing_padding:
+                    data += '=' * (4 - missing_padding)
+                decoded_data = base64.b64decode(data)
+                data = ContentFile(decoded_data, name=f'{title}.jpg')
+            else:
+                # Если данных нет, создаем пустой файл
+                data = ContentFile(b'', name=f'{title}.jpg')
+        except Exception as e:
+            # Если декодирование не удалось, создаем пустой файл
+            data = ContentFile(b'', name=f'{title}.jpg')
         
         image = Image.objects.create(
             data=data,
             title=title,
-            pass_instance=validated_data.get('pass_instance')
+            **validated_data
         )
         return image
 
@@ -81,10 +94,9 @@ class PassSerializer(serializers.ModelSerializer):
         images_data = validated_data.pop('images')
         
         # Создаем или получаем пользователя
-        user_email = user_data.pop('email')
         user, created = User.objects.get_or_create(
-            email=user_email,
-            defaults={**user_data, 'email': user_email}
+            email=user_data['email'],
+            defaults=user_data
         )
         
         # Создаем координаты
@@ -99,10 +111,7 @@ class PassSerializer(serializers.ModelSerializer):
             coords=coords,
             level=level,
             status='new',  # Согласно ТЗ, по умолчанию статус "new"
-            beauty_title=validated_data.get('beauty_title', ''),
-            title=validated_data.get('title', ''),
-            other_titles=validated_data.get('other_titles', ''),
-            connect=validated_data.get('connect', '')
+            **validated_data
         )
         
         # Создаем изображения
