@@ -1,8 +1,10 @@
 from django.urls import path
-from .views import submit_data_list, submit_data_detail
+from .views import submit_data, pass_detail
 
 urlpatterns = [
-    # Основные эндпоинты для работы с перевалами
-    path('submitData/', submit_data_list, name='submit_data_list'),
-    path('submitData/<int:pk>/', submit_data_detail, name='submit_data_detail'),
+    # POST/GET /submitData/ - создание нового перевала (POST) / получение перевалов пользователя (GET)
+    path('submitData/', submit_data, name='submit_data'),
+    
+    # GET/PATCH /submitData/<id>/ - получение перевала по ID (GET) / редактирование перевала (PATCH)
+    path('submitData/<int:pass_id>/', pass_detail, name='pass_detail'),
 ] 
