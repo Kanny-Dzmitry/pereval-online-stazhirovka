@@ -98,7 +98,10 @@ class PassSerializer(serializers.ModelSerializer):
             coords=coords,
             level=level,
             status='new',  # Согласно ТЗ, по умолчанию статус "new"
-            **validated_data
+            beauty_title=validated_data.get('beauty_title', ''),
+            title=validated_data.get('title', ''),
+            other_titles=validated_data.get('other_titles', ''),
+            connect=validated_data.get('connect', '')
         )
         
         # Создаем изображения
