@@ -68,4 +68,6 @@ docker-compose.override.yml
 .cursor/
 
 # Exclude scrincast1.txt
-scrincast1.txt 
+scrincast1.txt
+scrincast2.txt
+scrincast3.txt  

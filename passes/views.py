@@ -4,6 +4,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction, IntegrityError
 from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .models import User, Coords, Level, Pass, Image
 from .serializers import PassSerializer, SubmitDataResponseSerializer
 import logging
@@ -58,6 +60,66 @@ class PassDataHandler:
             return False, error_message, None
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_description="Создание новой записи о горном перевале",
+    operation_summary="Добавить новый перевал",
+    request_body=PassSerializer,
+    responses={
+        200: openapi.Response(
+            description="Успешное создание перевала",
+            schema=SubmitDataResponseSerializer,
+            examples={
+                'application/json': {
+                    'status': 200,
+                    'message': None,
+                    'id': 42
+                }
+            }
+        ),
+        400: openapi.Response(
+            description="Ошибка валидации данных",
+            schema=SubmitDataResponseSerializer,
+            examples={
+                'application/json': {
+                    'status': 400,
+                    'message': 'Недостаточно полей. Отсутствуют: user, coords',
+                    'id': None
+                }
+            }
+        ),
+        500: openapi.Response(
+            description="Ошибка сервера",
+            schema=SubmitDataResponseSerializer
+        )
+    },
+    tags=['Перевалы']
+)
+@swagger_auto_schema(
+    method='get',
+    operation_description="Получение списка всех перевалов пользователя по email",
+    operation_summary="Получить перевалы пользователя",
+    manual_parameters=[
+        openapi.Parameter(
+            'user__email',
+            openapi.IN_QUERY,
+            description="Email пользователя",
+            type=openapi.TYPE_STRING,
+            required=True,
+            example="qwerty@mail.ru"
+        )
+    ],
+    responses={
+        200: openapi.Response(
+            description="Список перевалов пользователя",
+            schema=PassSerializer(many=True)
+        ),
+        400: openapi.Response(
+            description="Параметр user__email не указан"
+        )
+    },
+    tags=['Перевалы']
+)
 @api_view(['POST', 'GET'])
 def submit_data(request):
     """
@@ -162,6 +224,90 @@ def submit_data(request):
         return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@swagger_auto_schema(
+    method='get',
+    operation_description="Получение подробной информации о перевале по ID",
+    operation_summary="Получить перевал по ID",
+    responses={
+        200: openapi.Response(
+            description="Информация о перевале",
+            schema=PassSerializer
+        ),
+        404: openapi.Response(
+            description="Перевал не найден"
+        )
+    },
+    tags=['Перевалы']
+)
+@swagger_auto_schema(
+    method='patch',
+    operation_description="Редактирование перевала (только со статусом 'new')",
+    operation_summary="Редактировать перевал",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'title': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='Название перевала'
+            ),
+            'beauty_title': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='Красивое название'
+            ),
+            'other_titles': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='Альтернативные названия'
+            ),
+            'connect': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='Что соединяет'
+            ),
+            'coords': openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'latitude': openapi.Schema(type=openapi.TYPE_NUMBER),
+                    'longitude': openapi.Schema(type=openapi.TYPE_NUMBER),
+                    'height': openapi.Schema(type=openapi.TYPE_INTEGER)
+                }
+            ),
+            'level': openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'winter': openapi.Schema(type=openapi.TYPE_STRING),
+                    'summer': openapi.Schema(type=openapi.TYPE_STRING),
+                    'autumn': openapi.Schema(type=openapi.TYPE_STRING),
+                    'spring': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            )
+        }
+    ),
+    responses={
+        200: openapi.Response(
+            description="Успешное редактирование",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'state': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, example=None)
+                }
+            )
+        ),
+        400: openapi.Response(
+            description="Ошибка редактирования",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'state': openapi.Schema(type=openapi.TYPE_INTEGER, example=0),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            )
+        ),
+        404: openapi.Response(
+            description="Перевал не найден"
+        )
+    },
+    tags=['Перевалы']
+)
 @api_view(['GET', 'PATCH'])
 def pass_detail(request, pk):
     """
