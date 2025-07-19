@@ -8,6 +8,9 @@ REST API для мобильного приложения туристов, ко
 - **База данных:** PostgreSQL 15
 - **Контейнеризация:** Docker + Docker Compose
 - **Архитектура:** REST API
+- **Документация:** Swagger/OpenAPI (drf-yasg)
+- **Тестирование:** Django TestCase, REST Framework APITestCase
+- **Стандарты:** PEP 8, Django best practices
 
 ## Запуск проекта
 
@@ -192,7 +195,26 @@ python manage.py runserver
 ]
 ```
 
-##  Тестирование
+## API Документация
+
+### Swagger/OpenAPI
+
+Интерактивная документация API доступна по следующим адресам:
+
+- **Swagger UI**: `http://localhost:8000/swagger/` - интерактивный интерфейс для тестирования API
+- **ReDoc**: `http://localhost:8000/redoc/` - альтернативный интерфейс документации
+- **OpenAPI Schema**: `http://localhost:8000/swagger.json` - схема API в формате JSON
+
+### Использование Swagger
+
+1. Запустите проект через Docker или локально
+2. Перейдите по адресу `http://localhost:8000/swagger/`
+3. Изучите доступные endpoints и их параметры
+4. Тестируйте API прямо в браузере через интерфейс Swagger
+
+## Тестирование
+
+### Ручные тесты
 
 Запустите тестовый скрипт для проверки базового API:
 
@@ -206,15 +228,32 @@ python test_api.py
 python test_new_api.py
 ```
 
-**Тестируемая функциональность:**
+### Автоматические тесты Django
+
+Запустите полный набор тестов Django:
+
+```bash
+python manage.py test
+```
+
+Или через Docker:
+
+```bash
+docker-compose exec web python manage.py test
+```
+
+**Покрытие тестами:**
+- Класс PassDataHandler (методы работы с БД)
 - POST /submitData/ (создание перевала)
 - GET /submitData/<id>/ (получение по ID)
 - GET /submitData/?user__email=<email> (список по email)
 - PATCH /submitData/<id>/ (редактирование)
+- Модели данных (User, Coords, Level, Pass)
+- Валидация данных и обработка ошибок
 - Блокировка изменения пользовательских данных
 - Проверка статуса перед редактированием
 
-Убедитесь, что сервер запущен на `localhost:8000` перед запуском тестов.
+Убедитесь, что сервер запущен на `localhost:8000` перед запуском ручных тестов.
 
 ##  База данных
 
@@ -244,12 +283,41 @@ python test_new_api.py
 - `accepted` - модерация прошла успешно
 - `rejected` - модерация не прошла
 
-##  Переменные окружения
+## Переменные окружения
 
-- `FSTR_DB_HOST` - хост базы данных
-- `FSTR_DB_PORT` - порт базы данных  
-- `FSTR_DB_LOGIN` - логин для подключения
-- `FSTR_DB_PASS` - пароль для подключения
-- `FSTR_DB_NAME` - имя базы данных
+Проект использует переменные окружения для конфигурации:
+
+- `FSTR_DB_HOST` - хост базы данных (по умолчанию: localhost)
+- `FSTR_DB_PORT` - порт базы данных (по умолчанию: 5432)
+- `FSTR_DB_LOGIN` - логин для подключения к БД (по умолчанию: fstr_user)
+- `FSTR_DB_PASS` - пароль для подключения к БД (по умолчанию: fstr_password)
+- `FSTR_DB_NAME` - имя базы данных (по умолчанию: fstr_db)
 - `SECRET_KEY` - секретный ключ Django
-- `DEBUG` - режим отладки
+- `DEBUG` - режим отладки (по умолчанию: True)
+
+## Разработка
+
+### Структура проекта
+
+```
+стажировка/
+├── fstr_api/           # Настройки Django проекта
+├── passes/             # Основное приложение
+│   ├── models.py       # Модели данных
+│   ├── views.py        # REST API представления
+│   ├── serializers.py  # Сериализаторы DRF
+│   ├── urls.py         # URL маршруты
+│   └── tests.py        # Тесты
+├── docker-compose.yml  # Конфигурация Docker
+├── Dockerfile          # Образ приложения
+├── requirements.txt    # Python зависимости
+└── manage.py          # Django CLI
+```
+
+### Архитектура
+
+Проект следует принципам:
+- **Model-View-Serializer** (Django REST Framework)
+- **Разделение ответственности** (отдельный класс PassDataHandler для работы с БД)
+- **REST API стандарты** (правильные HTTP методы и коды ответов)
+- **Atomicity** (использование транзакций для целостности данных)
