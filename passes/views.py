@@ -4,10 +4,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction, IntegrityError
 from django.shortcuts import get_object_or_404
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 from .models import User, Coords, Level, Pass, Image
 from .serializers import PassSerializer, SubmitDataResponseSerializer
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 import logging
 
 # Create your views here.
@@ -62,34 +62,19 @@ class PassDataHandler:
 
 @swagger_auto_schema(
     method='post',
-    operation_description="Создание новой записи о горном перевале",
-    operation_summary="Добавить новый перевал",
+    operation_description="Получение и сохранение информации о перевале от мобильного приложения туриста",
     request_body=PassSerializer,
     responses={
         200: openapi.Response(
-            description="Успешное создание перевала",
-            schema=SubmitDataResponseSerializer,
-            examples={
-                'application/json': {
-                    'status': 200,
-                    'message': None,
-                    'id': 42
-                }
-            }
+            description="Успешное сохранение данных",
+            schema=SubmitDataResponseSerializer
         ),
         400: openapi.Response(
-            description="Ошибка валидации данных",
-            schema=SubmitDataResponseSerializer,
-            examples={
-                'application/json': {
-                    'status': 400,
-                    'message': 'Недостаточно полей. Отсутствуют: user, coords',
-                    'id': None
-                }
-            }
+            description="Недостаточно полей или некорректные данные",
+            schema=SubmitDataResponseSerializer
         ),
         500: openapi.Response(
-            description="Ошибка сервера",
+            description="Ошибка сервера/БД",
             schema=SubmitDataResponseSerializer
         )
     },
@@ -97,16 +82,14 @@ class PassDataHandler:
 )
 @swagger_auto_schema(
     method='get',
-    operation_description="Получение списка всех перевалов пользователя по email",
-    operation_summary="Получить перевалы пользователя",
+    operation_description="Получение списка всех объектов, которые пользователь с указанной почтой отправил на сервер",
     manual_parameters=[
         openapi.Parameter(
             'user__email',
             openapi.IN_QUERY,
-            description="Email пользователя",
+            description="Email пользователя для фильтрации перевалов",
             type=openapi.TYPE_STRING,
-            required=True,
-            example="qwerty@mail.ru"
+            required=True
         )
     ],
     responses={
@@ -115,7 +98,10 @@ class PassDataHandler:
             schema=PassSerializer(many=True)
         ),
         400: openapi.Response(
-            description="Параметр user__email не указан"
+            description="Параметр user__email обязателен"
+        ),
+        500: openapi.Response(
+            description="Ошибка сервера"
         )
     },
     tags=['Перевалы']
@@ -226,8 +212,7 @@ def submit_data(request):
 
 @swagger_auto_schema(
     method='get',
-    operation_description="Получение подробной информации о перевале по ID",
-    operation_summary="Получить перевал по ID",
+    operation_description="Получение одной записи (перевала) по её ID. Выводит всю информацию об объекте, включая статус модерации",
     responses={
         200: openapi.Response(
             description="Информация о перевале",
@@ -235,75 +220,43 @@ def submit_data(request):
         ),
         404: openapi.Response(
             description="Перевал не найден"
+        ),
+        500: openapi.Response(
+            description="Ошибка сервера"
         )
     },
     tags=['Перевалы']
 )
 @swagger_auto_schema(
     method='patch',
-    operation_description="Редактирование перевала (только со статусом 'new')",
-    operation_summary="Редактировать перевал",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'title': openapi.Schema(
-                type=openapi.TYPE_STRING,
-                description='Название перевала'
-            ),
-            'beauty_title': openapi.Schema(
-                type=openapi.TYPE_STRING,
-                description='Красивое название'
-            ),
-            'other_titles': openapi.Schema(
-                type=openapi.TYPE_STRING,
-                description='Альтернативные названия'
-            ),
-            'connect': openapi.Schema(
-                type=openapi.TYPE_STRING,
-                description='Что соединяет'
-            ),
-            'coords': openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'latitude': openapi.Schema(type=openapi.TYPE_NUMBER),
-                    'longitude': openapi.Schema(type=openapi.TYPE_NUMBER),
-                    'height': openapi.Schema(type=openapi.TYPE_INTEGER)
-                }
-            ),
-            'level': openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'winter': openapi.Schema(type=openapi.TYPE_STRING),
-                    'summer': openapi.Schema(type=openapi.TYPE_STRING),
-                    'autumn': openapi.Schema(type=openapi.TYPE_STRING),
-                    'spring': openapi.Schema(type=openapi.TYPE_STRING)
-                }
-            )
-        }
-    ),
+    operation_description="Редактирование существующей записи (замена), если она в статусе 'new'. Редактировать можно все поля, кроме тех, что содержат ФИО, адрес почты и номер телефона",
+    request_body=PassSerializer,
     responses={
         200: openapi.Response(
             description="Успешное редактирование",
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
-                    'state': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
-                    'message': openapi.Schema(type=openapi.TYPE_STRING, example=None)
+                    'state': openapi.Schema(type=openapi.TYPE_INTEGER, description='1 - успешно, 0 - ошибка'),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='Сообщение об ошибке (если есть)')
                 }
             )
         ),
         400: openapi.Response(
-            description="Ошибка редактирования",
+            description="Редактирование невозможно или попытка изменить запрещенные поля",
             schema=openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
-                    'state': openapi.Schema(type=openapi.TYPE_INTEGER, example=0),
-                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                    'state': openapi.Schema(type=openapi.TYPE_INTEGER, description='0'),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='Описание ошибки')
                 }
             )
         ),
         404: openapi.Response(
             description="Перевал не найден"
+        ),
+        500: openapi.Response(
+            description="Ошибка сервера"
         )
     },
     tags=['Перевалы']

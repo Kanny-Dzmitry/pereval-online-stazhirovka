@@ -148,27 +148,3 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ],
 }
-
-# Swagger settings
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'basic': {
-            'type': 'basic'
-        }
-    },
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
-    'SUPPORTED_SUBMIT_METHODS': [
-        'get',
-        'post',
-        'put',
-        'delete',
-        'patch'
-    ],
-    'OPERATIONS_SORTER': 'alpha',
-    'TAGS_SORTER': 'alpha',
-    'DOC_EXPANSION': 'none',
-    'DEEP_LINKING': True,
-    'SHOW_EXTENSIONS': True,
-    'DEFAULT_MODEL_RENDERING': 'example'
-}

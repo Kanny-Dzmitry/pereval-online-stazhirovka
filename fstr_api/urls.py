@@ -24,22 +24,22 @@ from drf_yasg import openapi
 
 # Настройка Swagger
 schema_view = get_schema_view(
-    openapi.Info(
-        title="ФСТР API",
-        default_version='v1',
-        description="REST API для системы регистрации горных перевалов ФСТР",
-        contact=openapi.Contact(email="admin@fstr.ru"),
-        license=openapi.License(name="MIT License"),
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
+   openapi.Info(
+      title="Система регистрации горных перевалов API",
+      default_version='v1',
+      description="REST API для мобильного приложения туристов, которое позволяет регистрировать информацию о горных перевалах и отправлять её в систему ФСТР для модерации.",
+      contact=openapi.Contact(email="contact@fstr.ru"),
+      license=openapi.License(name="MIT License"),
+   ),
+   public=True,
+   permission_classes=(permissions.AllowAny,),
 )
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('passes.urls')),  # Подключаем маршруты приложения passes
     
-    # Swagger URLs
+    # Swagger документация
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     re_path(r'^swagger/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
