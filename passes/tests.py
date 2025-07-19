@@ -24,7 +24,7 @@ class PassDataHandlerTestCase(TestCase):
                 "email": "test@example.com",
                 "fam": "Тестов",
                 "name": "Тест",
-                "otc": "Тестович",
+                "otc": "Тестович", 
                 "phone": "+7 900 000 00 00"
             },
             "coords": {
@@ -39,13 +39,16 @@ class PassDataHandlerTestCase(TestCase):
                 "spring": ""
             },
             "images": [
-                {"data": base64.b64encode(b"fake_image_data").decode(), "title": "Тестовое изображение"}
+                {"data": base64.b64encode(b"fake_image_data").decode(), "title": "Изображение"}
             ]
         }
     
     def test_create_pass_success(self):
         """Тест успешного создания перевала"""
         success, result, pass_id = PassDataHandler.create_pass(self.valid_data)
+        
+        if not success:
+            print(f"Ошибка создания перевала: {result}")
         
         self.assertTrue(success)
         self.assertIsInstance(result, Pass)
@@ -65,7 +68,8 @@ class PassDataHandlerTestCase(TestCase):
         
     def test_create_pass_invalid_email(self):
         """Тест создания перевала с некорректным email"""
-        data = self.valid_data.copy()
+        import copy
+        data = copy.deepcopy(self.valid_data)
         data['user']['email'] = "invalid_email"
         
         success, result, pass_id = PassDataHandler.create_pass(data)

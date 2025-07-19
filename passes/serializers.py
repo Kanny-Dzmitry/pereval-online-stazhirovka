@@ -39,7 +39,7 @@ class ImageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Обработка base64 данных изображения
         data = validated_data.pop('data')
-        title = validated_data.get('title', '')
+        title = validated_data.pop('title', '')
         
         try:
             # Декодируем base64, если это необходимо
